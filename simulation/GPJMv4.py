@@ -167,7 +167,7 @@ class GPJMv3(gpflow.models.Model):
         self.likelihood_XN = gpflow.likelihoods.Gaussian()
         self.likelihood_XB = gpflow.likelihoods.Gaussian() # Can differ according to the model you rely on.
     
-    # @gpflow.params_as_tensors  # 2022_02_RMC Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_tX(self): # Zero-noise model is not supported by GPflow ==> Need to add an infinitesimal noise when initializing the model.
         Ktx = self.kern_tX.K(self.ts, self.ts) + tf.eye(tf.shape(self.ts)[0], dtype = gpflow.settings.float_type) * self.likelihood_tX.variance
         Ltx = tf.cholesky(Ktx)
@@ -175,7 +175,7 @@ class GPJMv3(gpflow.models.Model):
         logpdf_tx = gpflow.logdensities.multivariate_normal(self.X, mtx, Ltx)
         return tf.reduce_sum(logpdf_tx)
     
-    # @gpflow.params_as_tensors  # 2022_02_RMC Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XN(self):
         Kxn = self.kern_XN.K([self.X, self.ss], [self.X, self.ss]) + tf.eye(self.n_Nsample, dtype = gpflow.settings.float_type) * self.likelihood_XN.variance
         Lxn = tf.cholesky(Kxn)
@@ -183,7 +183,7 @@ class GPJMv3(gpflow.models.Model):
         logpdf_xn = gpflow.logdensities.multivariate_normal(self.Y_N, mxn, Lxn)
         return tf.reduce_sum(logpdf_xn)
 
-    # @gpflow.params_as_tensors  # 2022_02_RMC Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XB(self):
         Kxb = self.kern_XB.K(self.X, self.X) + tf.eye(tf.shape(self.X)[0], dtype = gpflow.settings.float_type) * self.likelihood_XB.variance
         Lxb = tf.cholesky(Kxb)
@@ -191,10 +191,11 @@ class GPJMv3(gpflow.models.Model):
         logpdf_xb = gpflow.logdensities.multivariate_normal(self.Y_B, mxb, Lxb)
         return tf.reduce_sum(logpdf_xb)
 
-    @gpflow.name_scope('likelihood')
-    # @gpflow.params_as_tensors  # 2022_02_RMC Parameters are now handled by GPflow. Remove these lines.
-    def _build_likelihood(self):
-        logpdf_tx = self._build_likelihood_tX()
-        logpdf_xn = self._build_likelihood_XN()
-        logpdf_xb = self._build_likelihood_XB()
-        return tf.reduce_sum(logpdf_tx + logpdf_xn + logpdf_xb)
+    # @gpflow.name_scope('likelihood')              # 2022-02 upd02 RMC: This is not how name_scopes are defined anymore. See 2 lines below.
+    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
+    def maximum_log_likelihood_objective(self):     # 2022-02 upd03 RMC: Abstract function for calculating log_likelihood now is named like this. (Was this the purpose of this function "_build_likelihood"?)
+        with tf.name_scope('likelihood') as scope:  # 2022-02 upd02 RMC: This is how name_scopes are defined nowaways.
+            logpdf_tx = self._build_likelihood_tX()
+            logpdf_xn = self._build_likelihood_XN()
+            logpdf_xb = self._build_likelihood_XB()
+            return tf.reduce_sum(logpdf_tx + logpdf_xn + logpdf_xb)
