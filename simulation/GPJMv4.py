@@ -7,10 +7,10 @@ import tensorflow as tf
 
 # Generate a convolved RBF kernel 
 class KernelHRFConvDownsized_RBF(gpflow.kernels.Kernel):
-    def __init__(self, input_dim, ts_N, ts_dense):
-        super().__init__(input_dim = input_dim)
+    def __init__(self, ts_N, ts_dense):                             # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
+        super().__init__()                                          # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
         # Set the basis kernel
-        self.kernel = gpflow.kernels.RBF(input_dim = input_dim, ARD = True)
+        self.kernel = gpflow.kernels.SquaredExponential(ARD = True) # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential"
         # Set the HRF
         def HRF_filter(ts_dense):
             ts = np.squeeze(ts_dense)
@@ -52,10 +52,10 @@ class KernelHRFConvDownsized_RBF(gpflow.kernels.Kernel):
 
 # A spatiotemporal kernel for 
 class KernelKronecker_Neural(gpflow.kernels.Kernel):
-    def __init__(self, input_dim_n, ts_N, ts_B, ss, kernel_temporal = KernelHRFConvDownsized_RBF, kernel_spatial = gpflow.kernels.RBF):
-        super().__init__(input_dim = input_dim_n + ss.shape[1])
-        self.kernel_t = kernel_temporal(input_dim = input_dim_n, ts_N = ts_N, ts_dense = ts_B)
-        self.kernel_s = kernel_spatial(input_dim = ss.shape[1])
+    def __init__(self, ts_N, ts_B, ss, kernel_temporal = KernelHRFConvDownsized_RBF, kernel_spatial = gpflow.kernels.SquaredExponential):   # 2022-02 RMC upd05: name of this kernel changed from "RBF" to "SquaredExponential"
+        super().__init__()                                              # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
+        self.kernel_t = kernel_temporal(ts_N = ts_N, ts_dense = ts_B)   # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
+        self.kernel_s = kernel_spatial()                                # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
         self.ts_N = ts_N
         self.ts_B = ts_B
         self.ss = ss
@@ -79,16 +79,16 @@ class GPJMv3(gpflow.models.Model):
     def __init__(self, Y_N, Y_B, ts_N, ts_B, n_latent, ss, neural_kernel = KernelKronecker_Neural, conv_scheme = KernelHRFConvDownsized_RBF,
                  kern_tX = None, mean_tX = None, kern_XN = None, mean_XN = None, kern_XB = None, mean_XB = None, name=None):
         if kern_tX is None:
-            kern_tX = gpflow.kernels.RBF(input_dim=1)
+            kern_tX = gpflow.kernels.SquaredExponential()       # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential"
         if mean_tX is None:
             mean_tX = gpflow.mean_functions.Zero(output_dim = n_latent)
         if kern_XN is None:
-            kern_XN = neural_kernel(input_dim_n = n_latent, ts_N = ts_N, ts_B = ts_B, ss = ss, kernel_temporal = conv_scheme)
+            kern_XN = neural_kernel(ts_N = ts_N, ts_B = ts_B, ss = ss, kernel_temporal = conv_scheme) # 2022-02 upd04: parameter "input_dim" removed from kernels. 
         if mean_XN is None:
             mean_XN = gpflow.mean_functions.Zero(output_dim = Y_N.shape[1])
         if kern_XB is None:
-#             kern_XB = gpflow.kernels.RBF(input_dim = n_latent)
-            kern_XB = gpflow.kernels.Matern12(input_dim = n_latent, ARD=True)
+#             kern_XB = gpflow.kernels.SquaredExponential()     # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential"
+            kern_XB = gpflow.kernels.Matern12(ARD=True)         # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
         if mean_XB is None:
             mean_XB = gpflow.mean_functions.Zero(output_dim = Y_B.shape[1])
         super().__init__(name=name)
@@ -167,7 +167,7 @@ class GPJMv3(gpflow.models.Model):
         self.likelihood_XN = gpflow.likelihoods.Gaussian()
         self.likelihood_XB = gpflow.likelihoods.Gaussian() # Can differ according to the model you rely on.
     
-    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_tX(self): # Zero-noise model is not supported by GPflow ==> Need to add an infinitesimal noise when initializing the model.
         Ktx = self.kern_tX.K(self.ts, self.ts) + tf.eye(tf.shape(self.ts)[0], dtype = gpflow.settings.float_type) * self.likelihood_tX.variance
         Ltx = tf.cholesky(Ktx)
@@ -175,7 +175,7 @@ class GPJMv3(gpflow.models.Model):
         logpdf_tx = gpflow.logdensities.multivariate_normal(self.X, mtx, Ltx)
         return tf.reduce_sum(logpdf_tx)
     
-    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XN(self):
         Kxn = self.kern_XN.K([self.X, self.ss], [self.X, self.ss]) + tf.eye(self.n_Nsample, dtype = gpflow.settings.float_type) * self.likelihood_XN.variance
         Lxn = tf.cholesky(Kxn)
@@ -183,7 +183,7 @@ class GPJMv3(gpflow.models.Model):
         logpdf_xn = gpflow.logdensities.multivariate_normal(self.Y_N, mxn, Lxn)
         return tf.reduce_sum(logpdf_xn)
 
-    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
+    # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XB(self):
         Kxb = self.kern_XB.K(self.X, self.X) + tf.eye(tf.shape(self.X)[0], dtype = gpflow.settings.float_type) * self.likelihood_XB.variance
         Lxb = tf.cholesky(Kxb)
@@ -191,10 +191,10 @@ class GPJMv3(gpflow.models.Model):
         logpdf_xb = gpflow.logdensities.multivariate_normal(self.Y_B, mxb, Lxb)
         return tf.reduce_sum(logpdf_xb)
 
-    # @gpflow.name_scope('likelihood')              # 2022-02 upd02 RMC: This is not how name_scopes are defined anymore. See 2 lines below.
-    # @gpflow.params_as_tensors                     # 2022-02 upd01 RMC: Parameters are now handled by GPflow. Remove these lines.
-    def maximum_log_likelihood_objective(self):     # 2022-02 upd03 RMC: Abstract function for calculating log_likelihood now is named like this. (Was this the purpose of this function "_build_likelihood"?)
-        with tf.name_scope('likelihood') as scope:  # 2022-02 upd02 RMC: This is how name_scopes are defined nowaways.
+    # @gpflow.name_scope('likelihood')              # 2022-02 RMC upd02: This is not how name_scopes are defined anymore. See 2 lines below.
+    # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
+    def maximum_log_likelihood_objective(self):     # 2022-02 RMC upd03: Abstract function for calculating log_likelihood now is named like this. (Was this the purpose of this function "_build_likelihood"?)
+        with tf.name_scope('likelihood') as scope:  # 2022-02 RMC upd02: This is how name_scopes are defined nowaways.
             logpdf_tx = self._build_likelihood_tX()
             logpdf_xn = self._build_likelihood_XN()
             logpdf_xb = self._build_likelihood_XB()
