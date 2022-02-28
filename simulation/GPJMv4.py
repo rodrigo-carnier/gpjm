@@ -4,6 +4,7 @@
 import numpy as np
 import gpflow
 import tensorflow as tf
+from gpflow.utilities import ops, print_summary                     # 2022-02 RMC upd08: method "pca_reduce" moved from "gpflow.models.gpvlm.PCA_reduce" to "gpflow.utilities.ops.pca_reduce"
 
 # Generate a convolved RBF kernel 
 class KernelHRFConvDownsized_RBF(gpflow.kernels.Kernel):
@@ -177,9 +178,9 @@ class GPJMv4(gpflow.models.GPModel):                            # 2022-02 RMC up
         self.kern_tX = kern_tX
         self.mean_tX = mean_tX
         self.n_latent = n_latent
-        self.N_pca = gpflow.models.gplvm.PCA_reduce(self.Y_N_interp, n_latent)
-        self.X = gpflow.Param(gpflow.models.gplvm.PCA_reduce(self.Y_N_interp, n_latent))
-
+        self.N_pca = ops.pca_reduce(self.Y_N_interp, n_latent)                  # 2022-02 RMC upd08: method "pca_reduce" moved from "gpflow.models.gpvlm.PCA_reduce" to "gpflow.utilities.ops.pca_reduce"
+        self.X = gpflow.Parameter(ops.pca_reduce(self.Y_N_interp, n_latent))    # 2022-02 RMC upd09: call to "PCA_reduce" changed according to upd08
+        
         # Neural data kernel
         self.kern_XN = kern_XN
         self.mean_XN = mean_XN
