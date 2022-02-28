@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 #%matplotlib inline
 
-from GPJMv3 import *
+from GPJMv4 import *
 from GPJMv3_datagen import *
 from GPJMv3_functions import *
 
 N_t = 100
-ts_N = np.linspace(0, N_t, N_t/2+1).reshape(-1, 1)
-ts = np.linspace(0, N_t, 3*N_t/2+1).reshape(-1, 1)
+ts_N = np.linspace(0, N_t, 33).reshape(-1, 1)   # 2022-02 RMC upd10: problems with number type, will check later
+ts = np.linspace(0, N_t, 3*33).reshape(-1, 1)   # 2022-02 RMC upd10: problems with number type, will check later
 
 ss = np.array([(x,y,z) for x in range(3) for y in range(3) for z in range(3)], dtype = np.float64)
 
@@ -47,21 +47,21 @@ plt.show()
 
 # Initialize the model.
 # Note that the noise parameter of the dynamics kernel and the variance parameter of the spatial kernel are fixed.
-test2 = GPJMv3(yn, yb.T, ts_N, ts, 2, ss)
+test2 = GPJMv4(yn, yb.T, ts_N, ts, 2, ss)
 test2.likelihood_tX.variance = 1e-6
-test2.likelihood_tX.variance.trainable = False
-test2.kern_XN.kernel_s.variance.trainable = False
+gpflow.set_trainable(test2.likelihood_tX, False)        # 2022-02 RMC upd11: trainable attributes are not assigned directly anymore, but need a method
+gpflow.set_trainable(test2.kern_XN.kernel_s, False)     # 2022-02 RMC upd11: trainable attributes are not assigned directly anymore, but need a method
 
 # Check the initialized model.
 test2
 
 # Fit the model to the simulated data.
-opt = gpflow.train.ScipyOptimizer()
-opt.minimize(test2)
+opt = gpflow.optimizers.Scipy()                                         # 2022-02 RMC upd12: Scipy is now one option of subclass gpflow.optimizers
+opt.minimize(test2.training_loss, variables=test2.trainable_variables)  # 2022-02 RMC upd13: call to "minimize" changed
 print("2-var done")
 
 # Get the log likelihood.
-llk2 = test2.compute_log_likelihood()
+llk2 = test2.log_marginal_likelihood()                                  # 2022-02 RMC upd14: call "compute_log_likelihood" changed
 print([llk2])
 
 # For color-coding the two-dimensional latent dynamics.
