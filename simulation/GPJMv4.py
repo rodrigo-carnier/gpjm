@@ -11,7 +11,7 @@ class KernelHRFConvDownsized_RBF(gpflow.kernels.Kernel):
     def __init__(self, ts_N, ts_dense):                             # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
         super().__init__()                                          # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
         # Set the basis kernel
-        self.kernel = gpflow.kernels.SquaredExponential(ARD = True) # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential"
+        self.kernel = gpflow.kernels.SquaredExponential() # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential". upd15: ARD/ard argument is not passable directly, but directly by lengthscales.
         # Set the HRF
         def HRF_filter(ts_dense):
             ts = np.squeeze(ts_dense)
@@ -103,7 +103,7 @@ class KernelKronecker_Neural(gpflow.kernels.Kernel):
         Ktt = tf.reshape(kern_temporal, [k, k, 1, 1])
         Kst = tf.squeeze(tf.nn.conv2d_transpose(Kss, Ktt, (1, o, o, 1), [1, s, s, 1], "VALID"))
 
-class GPJMv4(gpflow.models.GPModel):                            # 2022-02 RMC upd06: "gpflow.models.Model" does not exist anymore. Basic template now is "gpflow.models.GPModel", but problems arise.
+class GPJMv4(gpflow.models.GPR):                            # 2022-02 RMC upd06: "gpflow.models.Model" does not exist anymore. Basic template now is "gpflow.models.GPModel", but problems arise.
     def __init__(self, Y_N, Y_B, ts_N, ts_B, n_latent, ss, neural_kernel = KernelKronecker_Neural, conv_scheme = KernelHRFConvDownsized_RBF,
                  kern_tX = None, mean_tX = None, kern_XN = None, mean_XN = None, kern_XB = None, mean_XB = None, name=None):
         if kern_tX is None:
@@ -116,10 +116,11 @@ class GPJMv4(gpflow.models.GPModel):                            # 2022-02 RMC up
             mean_XN = gpflow.mean_functions.Zero(output_dim = Y_N.shape[1])
         if kern_XB is None:
 #             kern_XB = gpflow.kernels.SquaredExponential()     # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd05: name of this kernel changed from "RBF" to "SquaredExponential"
-            kern_XB = gpflow.kernels.Matern12(ARD=True)         # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. 
+            kern_XB = gpflow.kernels.Matern12()         # 2022-02 RMC upd04: parameter "input_dim" removed from kernels. upd15: ARD/ard argument is not passable directly, but directly by lengthscales.
         if mean_XB is None:
             mean_XB = gpflow.mean_functions.Zero(output_dim = Y_B.shape[1])
-        super().__init__(name=name)
+        #super().__init__(name=name)
+        super().__init__((ts_N,Y_N), kernel = KernelKronecker_Neural(ts_N = ts_N, ts_B = ts_B, ss = ss, kernel_temporal = conv_scheme))
         
         def cubic_interpolation(ts_sparse, Y_N, ts_dense, ss):
             from scipy import interpolate

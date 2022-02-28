@@ -4,6 +4,8 @@ import numpy as np
 import gpflow
 import tensorflow as tf
 
+from gpflow.config import set_default_float, default_float, set_default_summary_fmt # 2022-02 RMC upd16: Necessary for setting default num type as float
+
 set_default_float(np.float64)
 
 import matplotlib.pyplot as plt
