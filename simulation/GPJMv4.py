@@ -120,7 +120,7 @@ class GPJMv4(gpflow.models.GPR):                            # 2022-02 RMC upd06:
         if mean_XB is None:
             mean_XB = gpflow.mean_functions.Zero(output_dim = Y_B.shape[1])
         #super().__init__(name=name)
-        super().__init__((ts_N,Y_N), kernel = KernelKronecker_Neural(ts_N = ts_N, ts_B = ts_B, ss = ss, kernel_temporal = conv_scheme))
+        super().__init__((ts_N,Y_N), kernel = KernelKronecker_Neural(ts_N = ts_N, ts_B = ts_B, ss = ss, kernel_temporal = conv_scheme)) # 2022-02 RMC upd18: TODO - use different model since there is no abstract method defined for predict_f. This line here is not correct...
         
         def cubic_interpolation(ts_sparse, Y_N, ts_dense, ss):
             from scipy import interpolate
@@ -198,7 +198,7 @@ class GPJMv4(gpflow.models.GPR):                            # 2022-02 RMC upd06:
     
     # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_tX(self): # Zero-noise model is not supported by GPflow ==> Need to add an infinitesimal noise when initializing the model.
-        Ktx = self.kern_tX.K(self.ts, self.ts) + tf.eye(tf.shape(self.ts)[0], dtype = gpflow.settings.float_type) * self.likelihood_tX.variance
+        Ktx = self.kern_tX.K(self.ts, self.ts) + tf.eye(tf.shape(self.ts)[0]) * self.likelihood_tX.variance    # 2022-02 RMC upd17: gpflow does not have attribute "settings" anymore
         Ltx = tf.cholesky(Ktx)
         mtx = self.mean_tX(self.ts)
         logpdf_tx = gpflow.logdensities.multivariate_normal(self.X, mtx, Ltx)
@@ -206,7 +206,7 @@ class GPJMv4(gpflow.models.GPR):                            # 2022-02 RMC upd06:
     
     # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XN(self):
-        Kxn = self.kern_XN.K([self.X, self.ss], [self.X, self.ss]) + tf.eye(self.n_Nsample, dtype = gpflow.settings.float_type) * self.likelihood_XN.variance
+        Kxn = self.kern_XN.K([self.X, self.ss], [self.X, self.ss]) + tf.eye(self.n_Nsample) * self.likelihood_XN.variance     # 2022-02 RMC upd17: gpflow does not have attribute "settings" anymore
         Lxn = tf.cholesky(Kxn)
         mxn = self.mean_XN(self.Y_N)
         logpdf_xn = gpflow.logdensities.multivariate_normal(self.Y_N, mxn, Lxn)
@@ -214,7 +214,7 @@ class GPJMv4(gpflow.models.GPR):                            # 2022-02 RMC upd06:
 
     # @gpflow.params_as_tensors                     # 2022-02 RMC upd01: Parameters are now handled by GPflow. Remove these lines.
     def _build_likelihood_XB(self):
-        Kxb = self.kern_XB.K(self.X, self.X) + tf.eye(tf.shape(self.X)[0], dtype = gpflow.settings.float_type) * self.likelihood_XB.variance
+        Kxb = self.kern_XB.K(self.X, self.X) + tf.eye(tf.shape(self.X)[0]) * self.likelihood_XB.variance     # 2022-02 RMC upd17: gpflow does not have attribute "settings" anymore
         Lxb = tf.cholesky(Kxb)
         mxb = self.mean_XB(self.X)
         logpdf_xb = gpflow.logdensities.multivariate_normal(self.Y_B, mxb, Lxb)
