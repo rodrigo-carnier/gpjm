@@ -49,6 +49,19 @@ class KernelHRFConvDownsized_RBF(gpflow.kernels.Kernel):
         # Downsample the dense kernel
         res2 = tf.matmul(tf.transpose(self.M), tf.matmul(res1, self.M))
         return(res2)
+    
+    def K_diag(self, X, X2=None, presliced=False):                      # 2022-02 RMC upd07: now when creating a kernel it is necessary to define abstract method K_diag
+        if X2 is None:
+            X2=X
+        padK = tf.pad(self.kernel.K(X, X2), [[self.len_hrf_dense-1, 0],[self.len_hrf_dense-1,0]], 'CONSTANT')
+        hrf4conv = tf.reshape(self.hrf_dense, [self.len_hrf_dense, 1, 1])
+        temp0 = tf.reshape(padK, [tf.shape(padK)[0], tf.shape(padK)[1], 1], name='temp0')
+        res0 = tf.squeeze(tf.nn.conv1d(temp0, hrf4conv, 1, 'VALID'))
+        temp1 = tf.reshape(tf.transpose(res0), [tf.shape(res0)[1], tf.shape(res0)[0], 1], name='temp1')
+        res1 = tf.transpose(tf.squeeze(tf.nn.conv1d(temp1, hrf4conv, 1, 'VALID')))
+        # Downsample the dense kernel
+        res2 = tf.matmul(tf.transpose(self.M), tf.matmul(res1, self.M))
+        return(res2)
 
 # A spatiotemporal kernel for 
 class KernelKronecker_Neural(gpflow.kernels.Kernel):
@@ -74,8 +87,22 @@ class KernelKronecker_Neural(gpflow.kernels.Kernel):
         Ktt = tf.reshape(kern_temporal, [k, k, 1, 1])
         Kst = tf.squeeze(tf.nn.conv2d_transpose(Kss, Ktt, (1, o, o, 1), [1, s, s, 1], "VALID"))
         return(Kst)
+    
+    def K_diag(self, X, X2=None, presliced=False):              # 2022-02 RMC upd07: now when creating a kernel it is necessary to define abstract method "K_diag". For now I'm just copying method "K"
+        Xt = X[0]
+        Xs = X[1]
+        Xt2 = X2[0]
+        Xs2 = X2[1]
+        kern_temporal = self.kernel_t.K(Xt, Xt2)
+        kern_spatial = self.kernel_s.K(Xs, Xs2)
+        # Kronecker product        
+        i, k, s = self.ss.shape[0], self.ts_N.shape[0], self.ts_N.shape[0]
+        o = s * (i - 1) + k
+        Kss  = tf.reshape(kern_spatial, [1, i, i, 1])
+        Ktt = tf.reshape(kern_temporal, [k, k, 1, 1])
+        Kst = tf.squeeze(tf.nn.conv2d_transpose(Kss, Ktt, (1, o, o, 1), [1, s, s, 1], "VALID"))
 
-class GPJMv3(gpflow.models.Model):
+class GPJMv4(gpflow.models.GPModel):                            # 2022-02 RMC upd06: "gpflow.models.Model" does not exist anymore. Basic template now is "gpflow.models.GPModel", but problems arise.
     def __init__(self, Y_N, Y_B, ts_N, ts_B, n_latent, ss, neural_kernel = KernelKronecker_Neural, conv_scheme = KernelHRFConvDownsized_RBF,
                  kern_tX = None, mean_tX = None, kern_XN = None, mean_XN = None, kern_XB = None, mean_XB = None, name=None):
         if kern_tX is None:
